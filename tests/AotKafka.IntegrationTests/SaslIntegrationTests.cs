@@ -35,12 +35,15 @@ public class SaslIntegrationTests : IAsyncLifetime
 
     _redpanda = new ContainerBuilder()
             .WithImage("docker.redpanda.com/redpandadata/redpanda:v24.2.4")
-
               .WithPortBinding(KafkaOutsidePort, true)
-              .WithPortBinding(AdminPort, true).WithPrivileged(true)
+              .WithPortBinding(AdminPort, true)
               .WithPortBinding(RpcPort, true)
               .WithPortBinding(KafkaInsidePort, false) // no need to publish inside port
-            .WithCreateParameterModifier(p => { p.User = "0:0"; })
+            .WithCreateParameterModifier(p =>
+            {
+                p.User = "0:0";
+                p.HostConfig.Memory = 2L * 1024 * 1024 * 1024; 
+            })
          .WithStartupCallback(async (container, ct) =>
          {
              // resolve host-mapped ports *after* the container is running
@@ -56,9 +59,8 @@ public class SaslIntegrationTests : IAsyncLifetime
 
              // Start Redpanda in background with SASL + advertised addrs
              sb.Append("/usr/bin/rpk redpanda start ");
-             sb.Append("--mode dev-container ");
+             sb.Append("--mode dev-container --memory=1G ");
              sb.Append("--smp 1 ");
-             sb.Append("--memory 1G ");
              // bind listeners
              sb.Append($"--kafka-addr PLAINTEXT://0.0.0.0:{KafkaInsidePort},OUTSIDE://0.0.0.0:{KafkaOutsidePort} ");
              sb.Append($"--rpc-addr 0.0.0.0:{RpcPort} ");
@@ -95,6 +97,8 @@ public class SaslIntegrationTests : IAsyncLifetime
              sb.Append($"/usr/bin/rpk security acl create --allow-principal 'User:{Scram512User}' --operation all --topic '*' --group '*' --brokers localhost:{KafkaOutsidePort} -X user=user512 -X pass=user512-secret -X sasl.mechanism=SCRAM-SHA-512 -X admin.hosts=localhost:{AdminPort}");
 
              sb.Append(lf);
+             sb.Append("echo 'Redpanda initialization complete'");
+             sb.Append(lf);
              var script = sb.ToString();
 
              // copy + execute
@@ -103,8 +107,9 @@ public class SaslIntegrationTests : IAsyncLifetime
              var res = await container.ExecAsync(new[] { "bash", "-lc", path }, ct: ct);
              if (res.ExitCode != 0)
              {
-                 throw new InvalidOperationException($"Redpanda startup failed: {res.Stderr}");
+                 throw new InvalidOperationException($"Redpanda startup failed with exit code {res.ExitCode}. Stderr: {res.Stderr}");
              }
+             Console.WriteLine($"Redpanda startup script output: {res.Stdout}");
 
              // tell your test code where to connect (host-mapped OUTSIDE port)
              Console.WriteLine($"Bootstrap servers: localhost:{hostKafkaOutside}");

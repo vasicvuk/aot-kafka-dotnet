@@ -41,7 +41,12 @@ jobs:
       run: dotnet test tests/AotKafka.Tests/AotKafka.Tests.csproj --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
 
     - name: Run integration tests (with Testcontainers)
+      if: matrix.os == 'ubuntu-latest'
       run: dotnet test tests/AotKafka.IntegrationTests/AotKafka.IntegrationTests.csproj --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+    - name: Run integration tests (Windows - without heavy SASL tests)
+      if: matrix.os == 'windows-latest'
+      run: dotnet test tests/AotKafka.IntegrationTests/AotKafka.IntegrationTests.csproj --configuration Release --no-build --verbosity normal --filter "FullyQualifiedName!~SaslIntegrationTests" --collect:"XPlat Code Coverage" --results-directory ./coverage
 
     - name: Merge coverage reports
       run: |
