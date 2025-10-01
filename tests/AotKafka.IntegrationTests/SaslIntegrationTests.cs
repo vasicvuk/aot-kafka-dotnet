@@ -127,10 +127,36 @@ public class SaslIntegrationTests : IAsyncLifetime
         _bootstrapServers = $"localhost:{_redpanda.GetMappedPublicPort(9092)}";
         Console.WriteLine($"Bootstrap servers: {_bootstrapServers}");
 
-        // Wait for Redpanda to be fully ready
-        Console.WriteLine("Waiting 5 seconds for Redpanda to stabilize...");
-        await Task.Delay(TimeSpan.FromSeconds(5));
+        // Wait for Redpanda to be fully ready - use Admin API health check
+        Console.WriteLine("Waiting for Redpanda to be ready...");
+        var adminPort = _redpanda.GetMappedPublicPort(AdminPort);
+        var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+        var maxWaitTime = TimeSpan.FromSeconds(60);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
+        while (stopwatch.Elapsed < maxWaitTime)
+        {
+            try
+            {
+                var response = await httpClient.GetAsync($"http://localhost:{adminPort}/v1/status/ready");
+                if (response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Redpanda is ready after {stopwatch.Elapsed.TotalSeconds:F2} seconds");
+                    break;
+                }
+            }
+            catch
+            {
+                // Ignore connection errors during startup
+            }
+
+            await Task.Delay(500);
+        }
+
+        if (stopwatch.Elapsed >= maxWaitTime)
+        {
+            throw new TimeoutException("Redpanda did not become ready within 60 seconds");
+        }
 
         Console.WriteLine("=== Redpanda container initialization complete ===");
     }
@@ -154,7 +180,7 @@ public class SaslIntegrationTests : IAsyncLifetime
         var adminConfig = CreateAdminConfig(SaslMechanism.ScramSha256, Scram256User, Scram256Pass);
         using (var admin = new AdminClient(adminConfig))
         {
-            await admin.CreateTopicAsync(topic, numPartitions: 3, replicationFactor: 1, operationTimeout: TimeSpan.FromSeconds(30));
+            await admin.CreateTopicAsync(topic, numPartitions: 3, replicationFactor: 1, operationTimeout: TimeSpan.FromSeconds(120));
         }
         Console.WriteLine("Topic created successfully");
 
