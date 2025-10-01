@@ -1,0 +1,22 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+.vs
+*.user
+# User-specific files (MonoDevelop/Xamarin Studio)
+*.userprefs
+global.json
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+node_modules
+[Rr]eleases/
+x64/
+x86/
+bld/
+[Bb]in/
+[Tt]estResults/
+[Oo]bj/
+[Ll]og/

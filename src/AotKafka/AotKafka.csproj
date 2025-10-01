@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsAotCompatible>true</IsAotCompatible>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+		<EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Authors>AOT Kafka Contributors</Authors>
+    <Description>AOT-compatible .NET Kafka client wrapping librdkafka</Description>
+    <PackageTags>kafka;aot;native-aot;librdkafka</PackageTags>
+    <RepositoryUrl>https://github.com/yourusername/aot-kafka-dotnet</RepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AotKafka.Core\AotKafka.Core.csproj" />
+  </ItemGroup>
+
+</Project>
