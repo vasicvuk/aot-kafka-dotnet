@@ -1,32 +1,18 @@
 using Xunit;
-using Testcontainers.Redpanda;
 
 namespace AotKafka.IntegrationTests;
 
 /// <summary>
-/// Integration tests for Consumer using Redpanda container
+/// Integration tests for Consumer using Kafka container
 /// </summary>
-public class ConsumerIntegrationTests : IAsyncLifetime
+[Collection("Kafka Collection")]
+public class ConsumerIntegrationTests : IClassFixture<KafkaFixture>
 {
-    private RedpandaContainer? _redpanda;
-    private string _bootstrapServers = string.Empty;
+    private readonly KafkaFixture _kafkaFixture;
 
-    public async Task InitializeAsync()
+    public ConsumerIntegrationTests(KafkaFixture kafkaFixture)
     {
-        _redpanda = new RedpandaBuilder()
-            .WithImage("docker.redpanda.com/redpandadata/redpanda:v24.2.4")
-            .Build();
-
-        await _redpanda.StartAsync();
-        _bootstrapServers = _redpanda.GetBootstrapAddress();
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_redpanda != null)
-        {
-            await _redpanda.DisposeAsync();
-        }
+        _kafkaFixture = kafkaFixture;
     }
 
     [Fact]
@@ -35,7 +21,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = "test-group"
         };
 
@@ -51,7 +37,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = "test-group-subscribe"
         };
 
@@ -68,7 +54,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = "test-group-multi"
         };
 
@@ -86,7 +72,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Arrange - Produce a message first
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         using var producer = new Producer<string, string>(producerConfig);
@@ -102,7 +88,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Act - Consume the message
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = "test-consume-group",
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = false
@@ -128,7 +114,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Arrange - Produce multiple messages
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         const int messageCount = 10;
@@ -148,7 +134,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Act - Consume all messages
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = "test-multi-consume-group",
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = true
@@ -180,7 +166,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Arrange - Produce a message
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         using var producer = new Producer<string, string>(producerConfig);
@@ -194,7 +180,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Act - Consume and manually commit
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = "test-manual-commit-group",
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = false
@@ -218,7 +204,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Arrange - Produce binary message
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         using var producer = new Producer<byte[], byte[]>(producerConfig);
@@ -235,7 +221,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Act - Consume binary message
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = "test-bytes-consume-group",
             AutoOffsetReset = AutoOffsetReset.Earliest
         };
@@ -259,7 +245,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         var topicName = "test-earliest-offset";
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         using var producer = new Producer<string, string>(producerConfig);
@@ -273,7 +259,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Act - Consume from earliest
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = $"test-earliest-group-{Guid.NewGuid()}",
             AutoOffsetReset = AutoOffsetReset.Earliest
         };
@@ -296,7 +282,7 @@ public class ConsumerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = "test-close-group"
         };
 

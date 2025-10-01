@@ -1,32 +1,18 @@
 using Xunit;
-using Testcontainers.Redpanda;
 
 namespace AotKafka.IntegrationTests;
 
 /// <summary>
 /// End-to-end integration tests for Producer and Consumer working together
 /// </summary>
-public class ProducerConsumerIntegrationTests : IAsyncLifetime
+[Collection("Kafka Collection")]
+public class ProducerConsumerIntegrationTests : IClassFixture<KafkaFixture>
 {
-    private RedpandaContainer? _redpanda;
-    private string _bootstrapServers = string.Empty;
+    private readonly KafkaFixture _kafkaFixture;
 
-    public async Task InitializeAsync()
+    public ProducerConsumerIntegrationTests(KafkaFixture kafkaFixture)
     {
-        _redpanda = new RedpandaBuilder()
-            .WithImage("docker.redpanda.com/redpandadata/redpanda:v24.2.4")
-            .Build();
-
-        await _redpanda.StartAsync();
-        _bootstrapServers = _redpanda.GetBootstrapAddress();
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_redpanda != null)
-        {
-            await _redpanda.DisposeAsync();
-        }
+        _kafkaFixture = kafkaFixture;
     }
 
     [Fact]
@@ -36,13 +22,13 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
         var topic = "test-e2e-compression";
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             CompressionType = CompressionType.Snappy
         };
 
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = $"e2e-compression-group-{Guid.NewGuid()}",
             AutoOffsetReset = AutoOffsetReset.Earliest
         };
@@ -62,7 +48,15 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
         consumer.Subscribe(topic);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var result = consumer.Consume(cts.Token);
+        ConsumeResult<string, string> result;
+        try
+        {
+            result = consumer.Consume(cts.Token);
+        }
+        finally
+        {
+            consumer.Close();
+        }
 
         // Assert
         Assert.NotNull(result);
@@ -80,7 +74,7 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
 
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         // Act - Multiple producers
@@ -108,7 +102,7 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
         // Act - Single consumer
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = $"multi-producer-group-{Guid.NewGuid()}",
             AutoOffsetReset = AutoOffsetReset.Earliest
         };
@@ -119,10 +113,17 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
         var messages = new List<ConsumeResult<string, string>>();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
-        for (int i = 0; i < producerCount * messagesPerProducer; i++)
+        try
         {
-            var result = consumer.Consume(cts.Token);
-            messages.Add(result);
+            for (int i = 0; i < producerCount * messagesPerProducer; i++)
+            {
+                var result = consumer.Consume(cts.Token);
+                messages.Add(result);
+            }
+        }
+        finally
+        {
+            consumer.Close();
         }
 
         // Assert
@@ -142,13 +143,13 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
 
         using var admin = new AdminClient(new AdminConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         });
         await admin.CreateTopicAsync(topic, partitionCount, replicationFactor: 1, operationTimeout: TimeSpan.FromSeconds(30));
 
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         // Act - Produce messages
@@ -166,14 +167,14 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
         // Act - Two consumers in same group
         var consumerConfig1 = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = groupId,
             AutoOffsetReset = AutoOffsetReset.Earliest
         };
 
         var consumerConfig2 = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = groupId,
             AutoOffsetReset = AutoOffsetReset.Earliest
         };
@@ -227,6 +228,23 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
 
         await Task.WhenAny(Task.WhenAll(consume1, consume2), Task.Delay(TimeSpan.FromSeconds(15)));
 
+        // Cancel the token to stop consumption
+        cts.Cancel();
+
+        // Wait for consumption tasks to complete
+        try
+        {
+            await Task.WhenAll(consume1, consume2);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when cancellation token is triggered
+        }
+
+        // Ensure consumers are properly closed before disposal
+        consumer1.Close();
+        consumer2.Close();
+
         // Assert - Both consumers should have received messages
         var totalConsumed = messages1.Count + messages2.Count;
         Assert.True(totalConsumed >= messageCount, $"Expected at least {messageCount} messages, got {totalConsumed}");
@@ -246,7 +264,7 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
 
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         // Act - Produce messages with same key (goes to same partition)
@@ -264,7 +282,7 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
         // Act - Consume in order
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = $"ordering-group-{Guid.NewGuid()}",
             AutoOffsetReset = AutoOffsetReset.Earliest
         };
@@ -275,11 +293,19 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
         var messages = new List<string>();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
-        for (int i = 0; i < messageCount; i++)
+        try
         {
-            var result = consumer.Consume(cts.Token);
-            Assert.NotNull(result.Message.Value);
-            messages.Add(result.Message.Value);
+            for (int i = 0; i < messageCount; i++)
+            {
+                var result = consumer.Consume(cts.Token);
+                Assert.NotNull(result.Message.Value);
+                messages.Add(result.Message.Value);
+            }
+        }
+        finally
+        {
+            // Ensure consumer is properly closed before disposal
+            consumer.Close();
         }
 
         // Assert - Messages should be in order
@@ -298,14 +324,14 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
 
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             CompressionType = CompressionType.Lz4,
             BatchSize = 200_000 // Allow larger batches
         };
 
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = $"large-msg-group-{Guid.NewGuid()}",
             AutoOffsetReset = AutoOffsetReset.Earliest
         };
@@ -324,7 +350,15 @@ public class ProducerConsumerIntegrationTests : IAsyncLifetime
         consumer.Subscribe(topic);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        var result = consumer.Consume(cts.Token);
+        ConsumeResult<string, string> result;
+        try
+        {
+            result = consumer.Consume(cts.Token);
+        }
+        finally
+        {
+            consumer.Close();
+        }
 
         // Assert
         Assert.NotNull(result);

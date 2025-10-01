@@ -1,30 +1,16 @@
 using Xunit;
-using Testcontainers.Redpanda;
 using AotKafka.Native;
 
 namespace AotKafka.IntegrationTests;
 
-public class AdminIntegrationTests : IAsyncLifetime
+[Collection("Kafka Collection")]
+public class AdminIntegrationTests : IClassFixture<KafkaFixture>
 {
-    private RedpandaContainer? _redpanda;
-    private string _bootstrapServers = string.Empty;
+    private readonly KafkaFixture _kafkaFixture;
 
-    public async Task InitializeAsync()
+    public AdminIntegrationTests(KafkaFixture kafkaFixture)
     {
-        _redpanda = new RedpandaBuilder()
-            .WithImage("docker.redpanda.com/redpandadata/redpanda:v24.2.4")
-            .Build();
-
-        await _redpanda.StartAsync();
-        _bootstrapServers = _redpanda.GetBootstrapAddress();
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_redpanda != null)
-        {
-            await _redpanda.DisposeAsync();
-        }
+        _kafkaFixture = kafkaFixture;
     }
 
     [Fact]
@@ -34,14 +20,14 @@ public class AdminIntegrationTests : IAsyncLifetime
 
         using var admin = new AdminClient(new AdminConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         });
 
         await admin.CreateTopicAsync(topic, numPartitions: 3, replicationFactor: 1, operationTimeout: TimeSpan.FromSeconds(30));
 
         using var producer = new Producer<string, string>(new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         });
 
         await producer.ProduceAsync(topic, new Message<string, string>
@@ -53,7 +39,7 @@ public class AdminIntegrationTests : IAsyncLifetime
 
         using var consumer = new Consumer<string, string>(new ConsumerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             GroupId = $"admin-consumer-{Guid.NewGuid()}",
             AutoOffsetReset = AutoOffsetReset.Earliest
         });
@@ -74,7 +60,7 @@ public class AdminIntegrationTests : IAsyncLifetime
 
         using var admin = new AdminClient(new AdminConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         });
 
         await admin.CreateTopicAsync(topic, numPartitions: 1, replicationFactor: 1, operationTimeout: TimeSpan.FromSeconds(15));

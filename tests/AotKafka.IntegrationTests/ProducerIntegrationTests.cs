@@ -1,32 +1,18 @@
 using Xunit;
-using Testcontainers.Redpanda;
 
 namespace AotKafka.IntegrationTests;
 
 /// <summary>
-/// Integration tests for Producer using Redpanda container
+/// Integration tests for Producer using Kafka container
 /// </summary>
-public class ProducerIntegrationTests : IAsyncLifetime
+[Collection("Kafka Collection")]
+public class ProducerIntegrationTests : IClassFixture<KafkaFixture>
 {
-    private RedpandaContainer? _redpanda;
-    private string _bootstrapServers = string.Empty;
+    private readonly KafkaFixture _kafkaFixture;
 
-    public async Task InitializeAsync()
+    public ProducerIntegrationTests(KafkaFixture kafkaFixture)
     {
-        _redpanda = new RedpandaBuilder()
-            .WithImage("docker.redpanda.com/redpandadata/redpanda:v24.2.4")
-            .Build();
-
-        await _redpanda.StartAsync();
-        _bootstrapServers = _redpanda.GetBootstrapAddress();
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_redpanda != null)
-        {
-            await _redpanda.DisposeAsync();
-        }
+        _kafkaFixture = kafkaFixture;
     }
 
     [Fact]
@@ -35,7 +21,7 @@ public class ProducerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         // Act & Assert
@@ -50,7 +36,7 @@ public class ProducerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         using var producer = new Producer<string, string>(config);
@@ -82,7 +68,7 @@ public class ProducerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         using var producer = new Producer<string, string>(config);
@@ -107,7 +93,7 @@ public class ProducerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             LingerMs = 100,
             BatchSize = 1024
         };
@@ -145,7 +131,7 @@ public class ProducerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             CompressionType = CompressionType.Gzip
         };
 
@@ -170,7 +156,7 @@ public class ProducerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers,
+            BootstrapServers = _kafkaFixture.BootstrapServers,
             EnableIdempotence = true,
             MaxInFlight = 5,
             Acks = Acks.All
@@ -197,7 +183,7 @@ public class ProducerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         using var producer = new Producer<byte[], byte[]>(config);
@@ -221,7 +207,7 @@ public class ProducerIntegrationTests : IAsyncLifetime
         // Arrange
         var config = new ProducerConfig
         {
-            BootstrapServers = _bootstrapServers
+            BootstrapServers = _kafkaFixture.BootstrapServers
         };
 
         using var producer = new Producer<string, string>(config);
