@@ -70,6 +70,27 @@ public class ProducerConfig
     /// </summary>
     public int BatchSize { get; set; } = 16384;
 
+    /// <summary>
+    /// Enable librdkafka debug logging. Comma-separated list of debug contexts.
+    /// Common values: all, broker, topic, metadata, security, protocol, queue.
+    /// </summary>
+    public string? Debug { get; set; }
+
+    /// <summary>
+    /// Log level for librdkafka. Values: 0=EMERG, 1=ALERT, 2=CRIT, 3=ERROR, 4=WARN, 5=NOTICE, 6=INFO, 7=DEBUG.
+    /// </summary>
+    public int LogLevel { get; set; } = 6; // INFO level
+
+    /// <summary>
+    /// Maximum time to wait for broker metadata updates.
+    /// </summary>
+    public int MetadataRequestTimeoutMs { get; set; } = 30000;
+
+    /// <summary>
+    /// Number of seconds to wait for broker connection to be established.
+    /// </summary>
+    public int SocketConnectionSetupTimeoutMs { get; set; } = 30000;
+
     internal Dictionary<string, string> ToNativeConfig()
     {
         if (string.IsNullOrWhiteSpace(BootstrapServers))
@@ -107,12 +128,20 @@ public class ProducerConfig
             ["enable.idempotence"] = EnableIdempotence.ToString().ToLowerInvariant(),
             ["max.in.flight.requests.per.connection"] = MaxInFlight.ToString(),
             ["linger.ms"] = LingerMs.ToString(),
-            ["batch.size"] = BatchSize.ToString()
+            ["batch.size"] = BatchSize.ToString(),
+            ["metadata.request.timeout.ms"] = MetadataRequestTimeoutMs.ToString(),
+            ["socket.connection.setup.timeout.ms"] = SocketConnectionSetupTimeoutMs.ToString(),
+            ["log_level"] = LogLevel.ToString()
         };
 
         if (!string.IsNullOrWhiteSpace(ClientId))
         {
             config["client.id"] = ClientId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(Debug))
+        {
+            config["debug"] = Debug;
         }
 
         config.ApplySecurity(SecurityProtocol, SaslMechanism, SaslUsername, SaslPassword, nameof(ProducerConfig));
