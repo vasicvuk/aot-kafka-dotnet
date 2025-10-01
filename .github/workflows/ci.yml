@@ -15,7 +15,10 @@ env:
 jobs:
   build:
     name: Build & Test
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
     - name: Checkout code
@@ -39,8 +42,6 @@ jobs:
 
     - name: Run integration tests (with Testcontainers)
       run: dotnet test tests/AotKafka.IntegrationTests/AotKafka.IntegrationTests.csproj --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
-      env:
-        DOCKER_HOST: unix:///var/run/docker.sock
 
     - name: Merge coverage reports
       run: |
