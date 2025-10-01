@@ -4,7 +4,7 @@ using AotKafka.Native;
 namespace AotKafka.IntegrationTests;
 
 [Collection("Kafka Collection")]
-public class AdminIntegrationTests : IClassFixture<KafkaFixture>
+public class AdminIntegrationTests
 {
     private readonly KafkaFixture _kafkaFixture;
 

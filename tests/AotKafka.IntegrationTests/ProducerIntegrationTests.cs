@@ -6,7 +6,7 @@ namespace AotKafka.IntegrationTests;
 /// Integration tests for Producer using Kafka container
 /// </summary>
 [Collection("Kafka Collection")]
-public class ProducerIntegrationTests : IClassFixture<KafkaFixture>
+public class ProducerIntegrationTests
 {
     private readonly KafkaFixture _kafkaFixture;
 

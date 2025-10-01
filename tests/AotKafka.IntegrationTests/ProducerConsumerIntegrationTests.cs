@@ -6,7 +6,7 @@ namespace AotKafka.IntegrationTests;
 /// End-to-end integration tests for Producer and Consumer working together
 /// </summary>
 [Collection("Kafka Collection")]
-public class ProducerConsumerIntegrationTests : IClassFixture<KafkaFixture>
+public class ProducerConsumerIntegrationTests
 {
     private readonly KafkaFixture _kafkaFixture;
 

@@ -6,7 +6,7 @@ namespace AotKafka.IntegrationTests;
 /// Integration tests for Consumer using Kafka container
 /// </summary>
 [Collection("Kafka Collection")]
-public class ConsumerIntegrationTests : IClassFixture<KafkaFixture>
+public class ConsumerIntegrationTests
 {
     private readonly KafkaFixture _kafkaFixture;
 
